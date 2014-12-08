@@ -1,6 +1,7 @@
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
+import java.util.Arrays;
 
 /**
  * This is the main class for the security
@@ -8,10 +9,11 @@ import java.io.IOException;
  * then attempt to guess them.
  * 
  * @author Chris Schweinhart (schwein)
+ * @author Nate Kibler (nkibler7)
  */
 public class Main
 {
-	private static int[][] data;
+	private static long[][] data;
 	private static final char[] charset = {'a', 'b', 'c', 'd', 'e',
 										  'f', 'g', 'h', 'i', 'j',
 										  'k', 'l', 'm', 'n', 'o',
@@ -26,6 +28,21 @@ public class Main
 										  '3', '4', '5', '6', '7',
 										  '8', '9'};
 	
+	// Random and typical password arrays
+	private static final int NUM_PASSWORDS = 1;
+	private static final String[] randoms = new String[NUM_PASSWORDS];
+	private static final String[] typicals = new String[NUM_PASSWORDS];
+	
+	// Password length constants
+	private static final int LENGTH_LOWER_BOUND = 3;
+	private static final int LENGTH_UPPER_BOUND = 6;
+	
+	// Output constants
+	private static final String[] TYPE_OF_ATTACK = {"BRUTE ON RANDOMS",
+													"BRUTE ON TYPICALS",
+													"DICTIONARY ON RANDOMS",
+													"DICTIONARY ON TYPICALS"};
+	
 	/**
 	 * The main method for our security project.
 	 * 
@@ -33,10 +50,9 @@ public class Main
 	 */
 	public static void main(String[] args)
 	{
-		// Generate 100 random passwords
-		String[] randoms = new String[100];
-		for (int i = 0; i < 100; i++) {
-			int numchars = 6 + (int) (Math.random()*11);
+		// Generate random passwords
+		for (int i = 0; i < NUM_PASSWORDS; i++) {
+			int numchars = LENGTH_LOWER_BOUND + (int) (Math.random()*((double)(LENGTH_UPPER_BOUND - LENGTH_LOWER_BOUND)));
 			char[] temp = new char[numchars];
 			for (int j = 0; j < numchars; j++) {
 				temp[j] = charset[(int)(Math.random() * charset.length)];
@@ -44,15 +60,14 @@ public class Main
 			randoms[i] = new String(temp);
 		}
 		
-		// Generate 100 typical passwords
-		String[] typicals = new String[100];
+		// Generate typical passwords
 		String temp = "";
-		for (int i = 0; i < 100; i++) {
+		for (int i = 0; i < NUM_PASSWORDS; i++) {
 			int numwords = 1 + (int) (Math.random()*2);
 			for (int j = 0; j < numwords; j++) {
 				try {
 					String str = "";
-					BufferedReader in = new BufferedReader(new FileReader("dictionary.txt"));
+					BufferedReader in = new BufferedReader(new FileReader("bin/dictionary.txt"));
 					int index = (int) (Math.random() * 127143);
 					for (; index >= 0; index--) {
 						str = in.readLine();
@@ -68,20 +83,17 @@ public class Main
 		}
 		
 		// Set up the data arrays
-		data = new int[4][100];
-		int i;
+		data = new long[4][NUM_PASSWORDS];
 		
-		// Run the brute force on each
-		for (i = 0; i < 100; i++)
+		// Run the attacks on each password
+		for (int i = 0; i < NUM_PASSWORDS; i++) {
+			// Try bruteforce
 			data[0][i] = brute(randoms[i]);
-		for (i = 0; i < 100; i++)
-			data[0][i] = brute(typicals[i]);
-			
-		// Run the dictionary attack on each
-		for (i = 0; i < 100; i++)
-			data[0][i] = dictionary(randoms[i]);
-		for (i = 0; i < 100; i++)
-			data[0][i] = dictionary(typicals[i]);
+			data[1][i] = brute(typicals[i]);
+			// Try a dictionary attack
+			data[2][i] = dictionary(randoms[i]);
+			data[3][i] = dictionary(typicals[i]);
+		}
 		
 		// Output the results
 		output();
@@ -94,11 +106,52 @@ public class Main
 	 * @param input The input string to break.
 	 * @return      The time taken to break in ms.
 	 */
-	private static int brute(String input)
+	private static long brute(String input)
 	{
-		// TODO: Implement
-		return 0;
+		long startTime = System.currentTimeMillis();
+		char[] guess = new char[LENGTH_LOWER_BOUND];
+		Arrays.fill(guess,  charset[0]);
+		
+		while (guess.length <= LENGTH_UPPER_BOUND) {
+			String stringGuess = new String(guess);
+			if (stringGuess.equals(input))
+				break;
+			
+			guess = increment(guess);
+			System.out.println("Trying '" + stringGuess + "' against password '" + input + "'.");
+		}
+
+		return (System.currentTimeMillis() - startTime);
 	}
+	
+	private static char[] increment(char[] guess)
+    {
+		char[] newGuess = guess.clone();
+        int index = newGuess.length - 1;
+        while (index >= 0)
+        {
+            if (newGuess[index] == charset[charset.length - 1])
+            {
+                if (index == 0)
+                {
+                	newGuess = new char[newGuess.length + 1];
+                    Arrays.fill(newGuess, charset[0]);
+                    break;
+                }
+                else
+                {
+                	newGuess[index] = charset[0];
+                    index--;
+                }
+            }
+            else
+            {
+            	newGuess[index] = charset[indexInCharset(newGuess[index]) + 1];
+                break;
+            }
+        }
+        return newGuess;
+    }
 	
 	/**
 	 * This method will dictionary-attack the
@@ -107,7 +160,7 @@ public class Main
 	 * @param input The input string to break.
 	 * @return      The time taken to break in ms.
 	 */
-	private static int dictionary(String input)
+	private static long dictionary(String input)
 	{
 		// TODO: Implement
 		return 0;
@@ -119,6 +172,20 @@ public class Main
 	 */
 	private static void output()
 	{
-		// TODO: Implement
+		for (int i = 0; i < data.length; i++) {
+			System.out.println("-- " + TYPE_OF_ATTACK[i] + " --");
+			for (int j = 0; j < data[i].length; j++) {
+				String pwd = (i < 2) ? randoms[j] : typicals[j];
+				System.out.println("Time to crack '" + pwd + "': " + data[i][j]);
+			}
+		}
+	}
+	
+	private static int indexInCharset(char c) {
+		for (int i = 0; i < charset.length; i++) {
+			if (charset[i] == c)
+				return i;
+		}
+		return -1;
 	}
 }
