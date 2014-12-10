@@ -33,14 +33,18 @@ public class Main
 	private static final String[] randoms = new String[NUM_PASSWORDS];
 	private static final String[] typicals = new String[NUM_PASSWORDS];
 	
+	// Common passwords list constants
+	private static final String COMMON_PASSWORDS_FILE = "bin/new_dictionary.txt";
+	private static final int NUM_COMMON_PASSWORDS = 27849;
+	
 	// Password length constants
-	private static final int LENGTH_LOWER_BOUND = 3;
+	private static final int LENGTH_LOWER_BOUND = 4;
 	private static final int LENGTH_UPPER_BOUND = 6;
 	
 	// Output constants
 	private static final String[] TYPE_OF_ATTACK = {"BRUTE ON RANDOMS",
-													"BRUTE ON TYPICALS",
 													"DICTIONARY ON RANDOMS",
+													"BRUTE ON TYPICALS",
 													"DICTIONARY ON TYPICALS"};
 	
 	/**
@@ -52,7 +56,7 @@ public class Main
 	{
 		// Generate random passwords
 		for (int i = 0; i < NUM_PASSWORDS; i++) {
-			int numchars = LENGTH_LOWER_BOUND + (int) (Math.random()*((double)(LENGTH_UPPER_BOUND - LENGTH_LOWER_BOUND)));
+			int numchars = LENGTH_LOWER_BOUND + (int) (Math.random()*((double)((LENGTH_UPPER_BOUND + 1) - LENGTH_LOWER_BOUND)));
 			char[] temp = new char[numchars];
 			for (int j = 0; j < numchars; j++) {
 				temp[j] = charset[(int)(Math.random() * charset.length)];
@@ -61,25 +65,20 @@ public class Main
 		}
 		
 		// Generate typical passwords
-		String temp = "";
 		for (int i = 0; i < NUM_PASSWORDS; i++) {
-			int numwords = 1 + (int) (Math.random()*2);
-			for (int j = 0; j < numwords; j++) {
-				try {
-					String str = "";
-					BufferedReader in = new BufferedReader(new FileReader("bin/dictionary.txt"));
-					int index = (int) (Math.random() * 127143);
-					for (; index >= 0; index--) {
-						str = in.readLine();
-					}
-					in.close();
-					temp += str;
-				} catch (IOException ex) {
-					ex.printStackTrace();
-					System.exit(0);
+			String str = "";
+			try {
+				BufferedReader in = new BufferedReader(new FileReader(COMMON_PASSWORDS_FILE));
+				int index = (int) (Math.random() * (NUM_COMMON_PASSWORDS + 1));
+				for (; index >= 0; index--) {
+					str = in.readLine();
 				}
+				in.close();
+			} catch (IOException ex) {
+				ex.printStackTrace();
+				System.exit(0);
 			}
-			typicals[i] = temp;
+			typicals[i] = str;
 		}
 		
 		// Set up the data arrays
@@ -87,12 +86,18 @@ public class Main
 		
 		// Run the attacks on each password
 		for (int i = 0; i < NUM_PASSWORDS; i++) {
-			// Try bruteforce
+			System.out.println("Brute forcing '" + randoms[i] + "'...");
 			data[0][i] = brute(randoms[i]);
-			data[1][i] = brute(typicals[i]);
-			// Try a dictionary attack
-			data[2][i] = dictionary(randoms[i]);
+			System.out.println("Took " + data[0][i] + " ms!");
+			System.out.println("Dictionary cracking '" + randoms[i] + "'...");
+			data[1][i] = dictionary(randoms[i]);
+			System.out.println("Took " + data[1][i] + " ms!");
+			System.out.println("Brute forcing '" + typicals[i] + "'...");
+			data[2][i] = brute(typicals[i]);
+			System.out.println("Took " + data[2][i] + " ms!");
+			System.out.println("Dictionary cracking '" + typicals[i] + "'...");
 			data[3][i] = dictionary(typicals[i]);
+			System.out.println("Took " + data[3][i] + " ms!");
 		}
 		
 		// Output the results
@@ -112,16 +117,18 @@ public class Main
 		char[] guess = new char[LENGTH_LOWER_BOUND];
 		Arrays.fill(guess,  charset[0]);
 		
+		boolean cracked = false;
 		while (guess.length <= LENGTH_UPPER_BOUND) {
 			String stringGuess = new String(guess);
-			if (stringGuess.equals(input))
+			if (stringGuess.equals(input)) {
+				cracked = true;
 				break;
+			}
 			
 			guess = increment(guess);
-			System.out.println("Trying '" + stringGuess + "' against password '" + input + "'.");
 		}
 
-		return (System.currentTimeMillis() - startTime);
+		return cracked ? (System.currentTimeMillis() - startTime) : -1;
 	}
 	
 	private static char[] increment(char[] guess)
@@ -162,8 +169,24 @@ public class Main
 	 */
 	private static long dictionary(String input)
 	{
-		// TODO: Implement
-		return 0;
+		long start = System.currentTimeMillis();
+		boolean cracked = false;
+		try {
+			BufferedReader in = new BufferedReader(new FileReader(COMMON_PASSWORDS_FILE));
+			for (int i = 0; i < NUM_COMMON_PASSWORDS; i++) {
+				String str = in.readLine();
+				if (input.equals(str)) {
+					cracked = true;
+					break;
+				}
+			}
+			in.close();
+		} catch (IOException ex) {
+			ex.printStackTrace();
+			System.exit(0);
+		}
+		
+		return cracked ? (System.currentTimeMillis() - start) : -1;
 	}
 	
 	/**
